@@ -49,10 +49,12 @@ service for the rest.
 
 ## Requirements
 
-- **Omarchy / Hyprland** with the **Quickshell** status bar (Omarchy's default). *(A Waybar
+- **Omarchy** with the **Quickshell** status bar (Omarchy's default). *(A Waybar
   alternative is in [`extras/waybar/`](extras/waybar).)*
-- **chromium** (the panel is a `chromium --app` window) and **python3** (a tiny loopback server).
 - Network access to the Squawkr plugin API (see [Configuration](#configuration)).
+
+The panel is a **native QML popup** — outside-click, `Esc`, theming, and focus
+all come from the shell itself. No browser, no local server.
 
 ## Install
 
@@ -65,14 +67,12 @@ cd squawkr-widget
 `./install.sh --wire` is **additive and reversible** — it backs up every file it touches, never
 clobbers a config, and never modifies anything under `/usr/share/omarchy`. It:
 
-- copies the web app to `~/.local/share/squawkr-widget/app`, the launcher to `~/.local/bin`, and the
-  Quickshell bar plugin to `~/.config/omarchy/plugins/squawkr`;
+- copies the QML plugin to `~/.config/omarchy/plugins/squawkr`;
 - registers the module at the start of the bar's **right** group in `~/.config/omarchy/shell.json`
   (right, not centre, so a laptop's display notch can't hide it) and reloads the shell;
-- appends a Hyprland window rule to `~/.config/hypr/hyprland.lua` (floats + sizes the panel and docks
-  it below the icon) and reloads Hyprland.
+- retires the pre-native chromium stack (launcher, loopback server, float rule) if present.
 
-Run `./install.sh` **without** `--wire` to copy the files and *print* the two config snippets for you
+Run `./install.sh` **without** `--wire` to copy the files and *print* the config step for you
 to add by hand instead.
 
 Then click the Squawkr mark in your bar.
@@ -92,7 +92,7 @@ the Hyprland rule block up to date, and closes a running panel so the next click
 
 ## Configuration
 
-Everything is driven by [`app/config.js`](app/config.js):
+Everything is driven by [`omarchy-plugin/squawkr/Squawkr.js`](omarchy-plugin/squawkr/Squawkr.js):
 
 | Setting | What it does |
 |---|---|
@@ -102,29 +102,28 @@ Everything is driven by [`app/config.js`](app/config.js):
 | `REFRESH_MS` | Live refresh cadence (also refreshes on panel open). |
 | `STALE_CUTOFF_MIN` | Past this age, a value shows as **unknown** — never as a current answer. |
 
-Environment: `SQUAWKR_WIDGET_PORT` (default `8770`) sets the loopback port the app is served on. The
-widget stores a per-install API token and your tracked list in `localStorage`.
+State: the widget stores a per-install API token and your tracked list in
+`~/.local/share/squawkr-widget/state.json`. First run seeds the home field from the Omarchy
+location (the `weather.json` pin when set, else IP detection) — a saved home never moves on
+its own, but the panel says so when you are far from it.
 
 ## How it works
 
-The bar plugin (`omarchy-plugin/squawkr/`) puts the mark in the Quickshell bar; clicking it runs the
-launcher (`launch.sh`), which serves the web app on `127.0.0.1:8770` via `serve.py` and opens it as a
-floating `chromium --app` window. `serve.py` also gives the panel two control routes (`/__open`,
-`/__close`) so the "full service" link opens your real browser and shuts the panel. A Hyprland rule
-(`hypr-squawkr-widget.lua`) floats, sizes, and docks the panel below the icon.
-
-> The app is served over `http` (not `file://`) because it uses ES modules + `fetch`, which a
-> `file://` origin blocks. `launch.sh` handles that for you.
+The bar plugin (`omarchy-plugin/squawkr/`) puts the mark in the Quickshell bar; clicking it
+toggles a native popup (`Panel.qml` — outside-click, `Esc`, theming, and focus come from the
+shell itself). `Panel.qml` owns data fetching (curl over `Quickshell.Io` `Process`), `Squawkr.js`
+holds the pure logic (runway maths, zone week strip, theme-ramp parsing), and the `*View.qml`
+files render home, detail, and search. Status colours come from the active Omarchy theme's
+`colors.toml`, read live — the panel follows theme switches with no restart.
 
 ## Uninstall
 
 ```sh
-rm -rf ~/.config/omarchy/plugins/squawkr ~/.local/share/squawkr-widget ~/.local/bin/squawkr-widget-launch.sh
+rm -rf ~/.config/omarchy/plugins/squawkr ~/.local/share/squawkr-widget
 ```
 
-Then remove `{"id":"squawkr.panel"}` from `~/.config/omarchy/shell.json` and the Squawkr block from
-`~/.config/hypr/hyprland.lua` (or restore the `.bak.*` files the installer left beside each), and
-reload the shell + Hyprland.
+Then remove `{"id":"squawkr.panel"}` from `~/.config/omarchy/shell.json` (or restore the `.bak.*`
+file the installer left beside it), and reload the shell.
 
 ## The full service
 

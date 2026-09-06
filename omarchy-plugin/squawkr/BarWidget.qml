@@ -1,22 +1,76 @@
 import QtQuick
 import QtQuick.Effects
 import Quickshell
+import Quickshell.Io
 import qs.Ui
 import qs.Commons
 
-// Squawkr bar module — the Squawkr mark in the Omarchy status bar. Click opens the Squawkr
-// panel (the web widget as a floating chromium --app window, via the installed launcher).
+// Squawkr bar module — the Squawkr mark in the Omarchy status bar. Click toggles the native
+// panel (Panel.qml, loaded below); the shell routes summon/hide/toggle here, and the bar's
+// popout coordinator closes other panels through closeForPopoutSwitch.
 //
-// The mark is a monochrome SVG. Quickshell's own bar glyphs take Color.foreground so they follow
-// the theme (dark on a light/transparent bar, light on a dark one); a plain Image would not, so
-// it is recoloured to Color.foreground with a MultiEffect. That is the fix for "the mark stays
-// white when the bar goes transparent and every other icon turns dark".
+// The mark is a monochrome SVG. Bar glyphs take the button foreground so they follow the bar
+// (dark on a light/transparent bar, light on a dark one); a plain Image would not, so it is
+// recoloured to button.foreground with a MultiEffect.
 BarWidget {
   id: root
   moduleName: "squawkr.panel"
 
+  function injectPanel() {
+    var target = panelLoader.item;
+    if (!target) return;
+    if ("bar" in target) target.bar = root.bar;
+    if ("anchorItem" in target) target.anchorItem = button;
+    if ("hostWidget" in target) target.hostWidget = root;
+  }
+  function togglePanel() {
+    if (panelLoader.item && panelLoader.item.toggle) panelLoader.item.toggle();
+  }
+  function openPanel() {
+    if (panelLoader.item && panelLoader.item.openFromHotkey) panelLoader.item.openFromHotkey();
+  }
+  function closePanel() {
+    if (panelLoader.item && panelLoader.item.close) panelLoader.item.close();
+  }
+
+  IpcHandler {
+    target: "squawkr.panel"
+    function open(): string { root.openPanel(); return "open"; }
+    function close(): string { root.closePanel(); return "closed"; }
+    function show(): string { root.openPanel(); return "open"; }
+    function hide(): string { root.closePanel(); return "closed"; }
+    function toggle(): string { root.togglePanel(); return "toggled"; }
+  }
+
+  // Shape contract for shell summon/hide/toggle routing (Bar.findPanelWidget
+  // requires open/close/opened on the bar-widget root).
+  readonly property bool opened: panelLoader.item ? panelLoader.item.opened === true : false
+  function open() {
+    if (panelLoader.item && panelLoader.item.openFromHotkey) panelLoader.item.openFromHotkey();
+  }
+  function close() {
+    if (panelLoader.item && panelLoader.item.close) panelLoader.item.close();
+  }
+  readonly property bool popoutSwitchClosing: panelLoader.item ? panelLoader.item.popoutSwitchClosing === true : false
+  function closeForPopoutSwitch() {
+    if (panelLoader.item) panelLoader.item.closeForPopoutSwitch();
+  }
+
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
+
+  onBarChanged: injectPanel()
+
+  Loader {
+    id: panelLoader
+    active: true
+    source: Qt.resolvedUrl("Panel.qml")
+    visible: false
+    onLoaded: {
+      root.injectPanel();
+      Qt.callLater(root.injectPanel);
+    }
+  }
 
   BarIconButton {
     id: button
@@ -24,9 +78,9 @@ BarWidget {
     bar: root.bar
     tooltipText: "Squawkr — airspace & weather"
     iconComponent: markIcon
-    onPressed: function(b) {
-      if (!root.bar) return
-      root.bar.run(Quickshell.env("HOME") + "/.local/bin/squawkr-widget-launch.sh")
+    onPressed: function (b) {
+      if (!root.bar) return;
+      root.togglePanel();
     }
   }
 
@@ -44,14 +98,13 @@ BarWidget {
         smooth: true
         visible: false
       }
-      // Recolour the mark to the theme foreground, exactly like the shell's own icon glyphs.
-      // colorization 1.0 replaces the source colour with colorizationColor, keeping the alpha
-      // shape — so the mark adopts the bar's foreground and goes dark/light with the theme.
+      // colorization 1.0 replaces the source colour with colorizationColor, keeping the
+      // alpha shape — so the mark adopts the bar foreground like the shell's own glyphs.
       MultiEffect {
         anchors.fill: markSrc
         source: markSrc
         colorization: 1.0
-        colorizationColor: Color.foreground
+        colorizationColor: button.foreground
       }
     }
   }

@@ -2,11 +2,15 @@
   "schemaVersion": 1,
   "id": "squawkr.panel",
   "name": "Squawkr",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "author": "RW 03 AB",
-  "description": "Airspace activation & airfield weather — opens the Squawkr panel",
-  "kinds": ["bar-widget"],
-  "entryPoints": { "barWidget": "BarWidget.qml" },
+  "description": "Airspace activation & airfield weather \u2014 native panel, opens on click",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
   "barWidget": {
     "displayName": "Squawkr",
     "description": "Open the Squawkr panel",
