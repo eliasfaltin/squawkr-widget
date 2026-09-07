@@ -500,7 +500,9 @@ Panel {
     owner: root.barIdentity
     bar: root.bar
     open: root.opened
-    centerOnBar: true
+    // Right-section widget: keep the card under the mark. centerOnBar is for
+    // centre-bar panels (weather, clock); it would park this one mid-screen.
+    centerOnBar: false
     focusTarget: keyCatcher
     contentWidth: panel.fittedContentWidth(Style.space(560))
     contentHeight: panel.fittedContentHeight(contentBox.implicitHeight)
